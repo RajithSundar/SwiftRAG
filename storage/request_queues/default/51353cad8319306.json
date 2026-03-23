@@ -1,0 +1,18 @@
+{
+  "unique_key": "https://www.uscis.gov/link/88486",
+  "url": "https://www.uscis.gov/link/88486",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "__crawlee": {
+      "enqueueStrategy": "same-hostname",
+      "state": 3,
+      "crawlDepth": 1
+    }
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": "2026-03-23 11:08:52.492240+00:00"
+}

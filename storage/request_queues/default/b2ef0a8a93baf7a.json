@@ -1,0 +1,17 @@
+{
+  "unique_key": "https://www.uscis.gov/sites/default/files/document/legal-docs/tps_ramos_v_nielsen_arabic_6.24.19.pdf",
+  "url": "https://www.uscis.gov/sites/default/files/document/legal-docs/TPS_Ramos_v_Nielsen_Arabic_6.24.19.pdf",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "__crawlee": {
+      "enqueueStrategy": "same-hostname",
+      "crawlDepth": 2
+    }
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": null
+}

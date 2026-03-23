@@ -1,0 +1,17 @@
+{
+  "unique_key": "https://www.uscis.gov/forms/all-forms?ftopics_tid=0&sort_bef_combine=sticky_asc&topic_id%5b%5d=1130",
+  "url": "https://www.uscis.gov/forms/all-forms?topic_id[]=1130&sort_bef_combine=sticky_ASC&ftopics_tid=0",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "__crawlee": {
+      "enqueueStrategy": "same-hostname",
+      "crawlDepth": 2
+    }
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": null
+}

@@ -1,0 +1,17 @@
+{
+  "unique_key": "https://www.uscis.gov/humanitarian/consideration-of-deferred-action-for-childhood-arrivals-daca/daca-litigation-information-and-frequently-asked-questions",
+  "url": "https://www.uscis.gov/humanitarian/consideration-of-deferred-action-for-childhood-arrivals-daca/daca-litigation-information-and-frequently-asked-questions",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "__crawlee": {
+      "enqueueStrategy": "same-hostname",
+      "crawlDepth": 2
+    }
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": null
+}

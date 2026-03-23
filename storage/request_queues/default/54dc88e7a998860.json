@@ -1,0 +1,17 @@
+{
+  "unique_key": "https://www.uscis.gov/newsroom/news-releases/dhs-terminates-temporary-protected-status-for-yemen-0",
+  "url": "https://www.uscis.gov/newsroom/news-releases/dhs-terminates-temporary-protected-status-for-yemen-0",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "__crawlee": {
+      "enqueueStrategy": "same-hostname",
+      "crawlDepth": 2
+    }
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": null
+}

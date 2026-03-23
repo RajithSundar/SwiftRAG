@@ -1,0 +1,17 @@
+{
+  "unique_key": "https://www.uscis.gov/es/centro-de-recursos-para-la-ciudadania/datos-y-estadisticas-relacionadas-con-la-naturalizacion",
+  "url": "https://www.uscis.gov/es/centro-de-recursos-para-la-ciudadania/datos-y-estadisticas-relacionadas-con-la-naturalizacion",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "__crawlee": {
+      "enqueueStrategy": "same-hostname",
+      "crawlDepth": 2
+    }
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": null
+}

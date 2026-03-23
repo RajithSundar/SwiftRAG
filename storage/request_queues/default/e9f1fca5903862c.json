@@ -1,0 +1,17 @@
+{
+  "unique_key": "https://www.uscis.gov/sites/default/files/document/memos/s1%20memo-(ice_uscis_cbp_signed)%20supplemental_parole_guidance_(final)02.11.22.pdf",
+  "url": "https://www.uscis.gov/sites/default/files/document/memos/S1%20Memo-(ICE_USCIS_CBP_signed)%20Supplemental_Parole_Guidance_(FINAL)02.11.22.pdf",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "__crawlee": {
+      "enqueueStrategy": "same-hostname",
+      "crawlDepth": 2
+    }
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": null
+}

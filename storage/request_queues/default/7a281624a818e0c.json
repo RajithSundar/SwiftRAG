@@ -1,0 +1,17 @@
+{
+  "unique_key": "https://www.uscis.gov/sites/default/files/document/forms/i-589%20form%20with%20watermark_ch.pdf",
+  "url": "https://www.uscis.gov/sites/default/files/document/forms/I-589%20Form%20with%20Watermark_CH.pdf",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "__crawlee": {
+      "enqueueStrategy": "same-hostname",
+      "crawlDepth": 2
+    }
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": null
+}

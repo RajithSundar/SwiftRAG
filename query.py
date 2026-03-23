@@ -71,8 +71,11 @@ def agent(state: State):
         "is matching your CSE background with the right university. Have you shortlisted any yet?')\n"
         "4. **No Lists**: Keep the dialogue to 2-4 cohesive sentences. Do not provide 'requirements' "
         "lists here; that is for the final evaluation stage.\n"
-        "\nReturn the analysis followed by the JSON state update. "
-        "Format: [Analysis] {{ \"extracted_info\": {{ ... }}, \"vetting_requested\": false }}"
+        "\n### REQUIRED 6 PILLARS TO EXTRACT ###\n"
+        " You MUST extract the following 6 pieces of information into the JSON state. If the user hasn't provided them, leave them out of the JSON completely.\n"
+        " 1. age\n 2. nationality\n 3. financials\n 4. purpose\n 5. target_country\n 6. visa_category\n\n"
+        "\nReturn the conversational response followed by the JSON state update. "
+        "Format: [Analysis or your reply] {{ \"extracted_info\": {{ \"age\": \"...\", \"nationality\": \"...\", \"financials\": \"...\", \"purpose\": \"...\", \"target_country\": \"...\", \"visa_category\": \"...\" }}, \"vetting_requested\": false }}"
     )
 
     prompt = ChatPromptTemplate.from_messages([
@@ -136,8 +139,7 @@ def retrieve(state: State):
     
     docs_and_scores = vectorstore.similarity_search_with_relevance_scores(
         query,
-        k=3,
-        filter={"country": state.get("selected_country", "UK")}
+        k=3
     )
     
     docs = [d[0] for d in docs_and_scores]
@@ -262,5 +264,10 @@ if __name__ == "__main__":
         if u_in.lower() in ["exit", "quit"]: break
         res = run_visa_consultation(u_in, tid)
         print(f"Officer: {res['answer']}")
+        print(f"[DEBUG] Extracted: {res.get('info')}")
         if res.get('confidence'):
             print(f"Confidence: {res['confidence']}%")
+        if res.get('sources'):
+            print("Sources:")
+            for source in res['sources']:
+                print(f" - {source}")

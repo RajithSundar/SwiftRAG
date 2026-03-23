@@ -1,0 +1,17 @@
+{
+  "unique_key": "https://www.uscis.gov/sites/default/files/document/policy-manual-updates/20250819-discretionaryfactors.pdf",
+  "url": "https://www.uscis.gov/sites/default/files/document/policy-manual-updates/20250819-DiscretionaryFactors.pdf",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "__crawlee": {
+      "enqueueStrategy": "same-hostname",
+      "crawlDepth": 1
+    }
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": null
+}

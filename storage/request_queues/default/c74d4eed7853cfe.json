@@ -1,0 +1,18 @@
+{
+  "unique_key": "https://www.uscis.gov/visit-the-us",
+  "url": "https://www.uscis.gov/visit-the-us",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "__crawlee": {
+      "enqueueStrategy": "same-hostname",
+      "state": 4,
+      "crawlDepth": 1
+    }
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": "2026-03-23 11:10:38.264704+00:00"
+}

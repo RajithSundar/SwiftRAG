@@ -1,0 +1,17 @@
+{
+  "unique_key": "https://www.uscis.gov/es/herramientas/informes-y-estudios/datos-sobre-ciudadania-e-inmigracion",
+  "url": "https://www.uscis.gov/es/herramientas/informes-y-estudios/datos-sobre-ciudadania-e-inmigracion",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "__crawlee": {
+      "enqueueStrategy": "same-hostname",
+      "crawlDepth": 2
+    }
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": null
+}

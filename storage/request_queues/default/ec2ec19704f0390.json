@@ -1,0 +1,17 @@
+{
+  "unique_key": "https://www.gov.uk/search/services.atom?topic%5b%5d=29480b00-dc4d-49a0-b48c-25dda8569325",
+  "url": "https://www.gov.uk/search/services.atom?topic%5B%5D=29480b00-dc4d-49a0-b48c-25dda8569325",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "__crawlee": {
+      "enqueueStrategy": "same-hostname",
+      "crawlDepth": 1
+    }
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": null
+}

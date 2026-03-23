@@ -1,0 +1,16 @@
+{
+  "unique_key": "https://www.uscis.gov/policy-manual/volume-2-part-f",
+  "url": "https://www.uscis.gov/policy-manual/volume-2-part-f",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "__crawlee": {
+      "state": 4
+    }
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": "2026-03-23 11:08:16.113714+00:00"
+}
