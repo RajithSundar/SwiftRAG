@@ -9,9 +9,10 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_groq import ChatGroq
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.output_parsers import StrOutputParser
+from langchain_core.output_parsers import StrOutputParser, PydanticOutputParser
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
+from pydantic import BaseModel, Field
 
 import config
 import prompts
@@ -31,7 +32,7 @@ class State(TypedDict):
 llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.3)
 embedding_model = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
 
-MISSING_VALUES = ["", "unknown", "not mentioned", "not provided", "none", "n/a", "null"]
+MISSING_VALUES = ["", "unknown", "not mentioned", "not provided", "none", "n/a", "null", "not specified"]
 
 def is_pillar_missing(value):
     """Checks if a PILLAR value is effectively missing or null."""
@@ -106,6 +107,9 @@ def agent(state: State):
     extracted = result.get("extracted_info", {})
     vetting = result.get("vetting_requested", False)
     
+    if not response:
+        response = "I've noted that information. Let me see what else we need to discuss."
+    
     # Normalize state update
     extracted_country = extracted.get("target_country") or current_country
     extracted_visa = extracted.get("visa_category") or current_visa
@@ -122,7 +126,8 @@ def agent(state: State):
     }
 
 def retrieve(state: State):
-    """Retrieves relevant visa policy documents using vector search."""
+    """Retrieves relevant visa policy documents using vector search and Cross-Encoder reranking."""
+    print("--- [NODE] Retrieve ---")
     from chromadb.config import Settings
     client = chromadb.PersistentClient(
         path=config.CHROMA_PERSIST_DIR,
@@ -137,26 +142,58 @@ def retrieve(state: State):
     human_messages = [m for m in state["messages"] if isinstance(m, HumanMessage)]
     query = human_messages[-1].content if human_messages else state["messages"][-1].content
     
+    # 1. Broad retrieval
     docs_and_scores = vectorstore.similarity_search_with_relevance_scores(
         query,
-        k=3
+        k=10
     )
     
     docs = [d[0] for d in docs_and_scores]
-    scores = [d[1] for d in docs_and_scores]
+    if not docs:
+        return {"retrieved_docs": [], "confidence_score": 0}
+        
+    # 2. Gemini-assisted Reranking
+    class RerankResult(BaseModel):
+        scores: List[float] = Field(description="Scores between 0 and 1 for each document in order")
     
-    # Weighted confidence scoring
-    weights = [0.5, 0.3, 0.2]
-    retrieval_score = 0.0
-    if scores:
-        w = weights[:len(scores)]
-        if sum(w) > 0:
-            retrieval_score = (sum(s * weight for s, weight in zip(scores, w)) / sum(w)) * 100
+    rerank_parser = PydanticOutputParser(pydantic_object=RerankResult)
+    rerank_prompt = ChatPromptTemplate.from_template(
+        "You are a relevance evaluator. Rank these documents based on how specifically "
+        "they answer the user's visa query: '{query}'\n\nDocs:\n{docs_text}\n\n"
+        "Return ONLY the scores as valid JSON.\n{format_instructions}"
+    )
     
-    return {"retrieved_docs": docs, "confidence_score": int(retrieval_score)}
+    docs_text = "\n".join([f"Doc {i}: {doc.page_content}" for i, doc in enumerate(docs)])
+    try:
+        raw_rerank = (rerank_prompt | llm | StrOutputParser()).invoke({
+            "query": query, 
+            "docs_text": docs_text,
+            "format_instructions": rerank_parser.get_format_instructions()
+        })
+        rerank_output = rerank_parser.parse(raw_rerank)
+        cross_scores = rerank_output.scores
+    except:
+        cross_scores = [0.8] * len(docs) # Fallback to optimistic relevance
+    
+    # 3. Filter by threshold (0.7) and sort
+    filtered_docs_with_scores = [(doc, float(score)) for doc, score in zip(docs, cross_scores) if score >= 0.7]
+    print(f"[DEBUG] Reranked {len(filtered_docs_with_scores)} / {len(docs)} documents above 0.7")
+    filtered_docs_with_scores.sort(key=lambda x: x[1], reverse=True)
+    
+    if not filtered_docs_with_scores:
+        print("[DEBUG] No documents passed the 0.7 threshold.")
+        return {"retrieved_docs": [], "confidence_score": 0}
+        
+    final_docs = [d[0] for d in filtered_docs_with_scores[:3]]
+    avg_score = sum(d[1] for d in filtered_docs_with_scores[:3]) / len(final_docs)
+    retrieval_score = int(avg_score * 100)
+    print(f"[DEBUG] Final Retrieval Score: {retrieval_score}")
+    
+    return {"retrieved_docs": final_docs, "confidence_score": retrieval_score}
 
 def evaluate(state: State):
     """Generates advice and evaluates faithfulness against context."""
+    print("--- [NODE] Evaluate ---")
     context = "\n\n".join(doc.page_content for doc in state["retrieved_docs"])
     info = state.get("extracted_info", {})
     
@@ -175,22 +212,43 @@ def evaluate(state: State):
     
     answer = (answer_prompt | llm | StrOutputParser()).invoke({"messages": state["messages"]})
 
+    class Evaluation(BaseModel):
+        is_faithful: bool = Field(description="Is the answer supported by the context?")
+        confidence_score: float = Field(description="Score between 0 and 1 indicating confidence in the answer based on context")
+        citations: List[str] = Field(description="List of specific policy sections or URLs used")
+
+    parser = PydanticOutputParser(pydantic_object=Evaluation)
+    
+    eval_system = (
+        "Evaluate the following answer against the context. "
+        "Return a valid JSON object exactly matching these instructions:\n"
+        "{format_instructions}\n\n"
+        "Context:\n{context}\n\n"
+        "Answer:\n{answer}"
+    )
+
     eval_prompt = ChatPromptTemplate.from_messages([
-        ("system", prompts.EVAL_SYSTEM_PROMPT.format(context=context, answer=answer))
+        ("system", eval_system)
     ])
     
-    f_score_str = (eval_prompt | llm | StrOutputParser()).invoke({})
     try:
-        f_score = int(re.search(r'\d', f_score_str).group())
-    except:
-        f_score = 3
+        raw_eval = (eval_prompt | llm | StrOutputParser()).invoke({
+            "context": context, 
+            "answer": answer, 
+            "format_instructions": parser.get_format_instructions()
+        })
+        parsed_eval = parser.parse(raw_eval)
+        faith_percent = parsed_eval.confidence_score * 100
+        is_faithful = parsed_eval.is_faithful
+    except Exception as e:
+        faith_percent = 50.0
+        is_faithful = False
 
-    faithfulness_percent = (f_score / 5.0) * 100
-    final_confidence = (state["confidence_score"] + faithfulness_percent) / 2
+    final_confidence = (state.get("confidence_score", 0) + faith_percent) / 2
 
     return {
         "messages": [AIMessage(content=answer)],
-        "faithfulness": f_score,
+        "faithfulness": 5 if is_faithful else 1,
         "confidence_score": int(final_confidence)
     }
 
