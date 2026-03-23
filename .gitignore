@@ -4,3 +4,4 @@ chroma_db/
 models.json
 model_test.txt
 error.txt
+.env

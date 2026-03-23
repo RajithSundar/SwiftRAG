@@ -1,0 +1,42 @@
+{
+    "countries": {
+        "USA": {
+            "selectors": [
+                ".tsg-rwd-main-copy-body-frame",
+                ".tsg-rwd-main-copy-frame"
+            ],
+            "use_dynamic": true
+        },
+        "DEFAULT": {
+            "selectors": [
+                "main",
+                "article",
+                "div[id='content']",
+                "body"
+            ],
+            "use_dynamic": false
+        }
+    },
+    "exclusions": {
+        "tags": [
+            "header",
+            "footer",
+            "aside",
+            "nav",
+            "style",
+            "script",
+            "noscript",
+            "meta",
+            "link",
+            "svg"
+        ],
+        "phrases": [
+            "apply now",
+            "share this page",
+            "cookie policy",
+            "accept cookies",
+            "read more",
+            "cookies"
+        ]
+    }
+}
