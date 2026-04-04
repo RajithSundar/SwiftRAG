@@ -6,12 +6,11 @@
   "headers": {},
   "user_data": {
     "__crawlee": {
-      "enqueueStrategy": "same-hostname",
-      "crawlDepth": 1
+      "state": 4
     }
   },
   "retry_count": 0,
   "no_retry": false,
   "loaded_url": null,
-  "handled_at": null
+  "handled_at": "2026-04-01 14:14:58.265276+00:00"
 }

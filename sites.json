@@ -7,6 +7,15 @@
             ],
             "use_dynamic": true
         },
+        "UK": {
+            "selectors": [
+                "main",
+                ".govuk-main-wrapper",
+                "#main-content",
+                "article"
+            ],
+            "use_dynamic": false
+        },
         "DEFAULT": {
             "selectors": [
                 "main",

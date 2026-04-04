@@ -26,8 +26,8 @@ vectorstore = Chroma(
 async def main():
     # Crawlee Playwright configuration
     crawler = PlaywrightCrawler(
-        # Safe limit for testing the ingestion flow
-        max_requests_per_crawl=20,
+        # High depth for comprehensive US and UK visa content ingestion
+        max_requests_per_crawl=500,
         headless=True
     )
 
@@ -46,11 +46,20 @@ async def main():
         html_content = await context.page.content()
 
         # Recursive Enqueueing: Crawlee automatically finds links and adds them
-        # Let's target USCIS volume-2 and UK visas
+        # BUG FIX: Tighten gov.uk glob to visa-specific paths only
         await context.enqueue_links(
             globs=[
                 "https://www.uscis.gov/policy-manual/volume-2-**",
-                "https://www.gov.uk/**"
+                "https://travel.state.gov/content/travel/en/us-visas/**",
+                "https://fam.state.gov/FAM/**",
+                "https://studyinthestates.dhs.gov/**",
+                "https://www.gov.uk/student-visa/**",
+                "https://www.gov.uk/skilled-worker-visa/**",
+                "https://www.gov.uk/standard-visitor/**",
+                "https://www.gov.uk/entering-staying-uk/visas-entry-clearance/**",
+                "https://www.gov.uk/guidance/immigration-rules/**",
+                "https://www.gov.uk/government/collections/student-route-caseworker-guidance**",
+                "https://www.gov.uk/government/publications/skilled-worker-visa-caseworker-guidance**"
             ],
             strategy="same-hostname"
         )
@@ -59,8 +68,8 @@ async def main():
             # High-Fidelity Extraction (preserves tables as HTML inner strings)
             elements = partition_html(text=html_content, strategy="hi_res")
             
-            # Title-aware chunking
-            chunks = chunk_by_title(elements)
+            # Smaller, focused chunks with overlap for better reranking precision
+            chunks = chunk_by_title(elements, max_characters=500, overlap=50)
 
             documents = []
             for chunk in chunks:
@@ -71,8 +80,22 @@ async def main():
                     content = chunk.text
                 
                 # Assemble metadata
+                # BUG FIX: Add country/visa_category for consistency with V1
+                country = "USA" if any(domain in url for domain in ["uscis.gov", "state.gov", "dhs.gov"]) else "UK" if "gov.uk" in url else "DEFAULT"
+                
+                # Dynamically guess the visa category from the URL slug
+                visa_category = "General"
+                if "student-visa" in url or "part-f" in url:
+                    visa_category = "Student Visa"
+                elif "skilled-worker" in url or "part-h" in url:
+                    visa_category = "Work Visa"
+                elif "visitor" in url or "part-b" in url:
+                    visa_category = "Visitor Visa"
+                
                 metadata = {
                     "source_url": url,
+                    "country": country,
+                    "visa_category": visa_category,
                     "timestamp": str(time.time()),
                 }
                 
@@ -85,7 +108,10 @@ async def main():
             
             # Store chunks in Chroma
             if documents:
-                vectorstore.add_documents(documents)
+                # BUG FIX: Deduplication via deterministic IDs
+                import hashlib
+                ids = [hashlib.md5(f"{doc.metadata['source_url']}{doc.page_content}".encode()).hexdigest() for doc in documents]
+                vectorstore.add_documents(documents, ids=ids)
                 context.log.info(f"Successfully processed and stored {len(documents)} chunks from {url}")
                 
         except Exception as e:
@@ -93,8 +119,30 @@ async def main():
 
     # Start the automated discovery
     start_urls = [
+        # US visa sources (USCIS)
         "https://www.uscis.gov/policy-manual",
-        "https://www.gov.uk/search/services?parent=%2Fentering-staying-uk%2Fvisas-entry-clearance&topic=29480b00-dc4d-49a0-b48c-25dda8569325"
+        "https://www.uscis.gov/policy-manual/volume-2-part-b",  # Visitors
+        "https://www.uscis.gov/policy-manual/volume-2-part-f",  # Students
+        "https://www.uscis.gov/policy-manual/volume-2-part-h",  # Work visas
+        
+        # US visa sources (State Dept & ICE)
+        "https://travel.state.gov/content/travel/en/us-visas/study/student-visa.html",
+        "https://travel.state.gov/content/travel/en/us-visas/employment/temporary-worker-visas.html",
+        "https://travel.state.gov/content/travel/en/us-visas/tourism-visit/visitor.html",
+        "https://fam.state.gov/FAM/09FAM/09FAM040205.html",
+        "https://studyinthestates.dhs.gov/students",
+
+        # UK visa sources (Basic)
+        "https://www.gov.uk/search/services?parent=%2Fentering-staying-uk%2Fvisas-entry-clearance&topic=29480b00-dc4d-49a0-b48c-25dda8569325",
+        "https://www.gov.uk/standard-visitor",
+        "https://www.gov.uk/student-visa",
+        "https://www.gov.uk/skilled-worker-visa",
+
+        # UK visa sources (Deep Lore/Caseworker)
+        "https://www.gov.uk/guidance/immigration-rules/appendix-student",
+        "https://www.gov.uk/guidance/immigration-rules/appendix-skilled-worker",
+        "https://www.gov.uk/government/collections/student-route-caseworker-guidance",
+        "https://www.gov.uk/government/publications/skilled-worker-visa-caseworker-guidance",
     ]
     
     print("Starting Crawlee ingestion pipeline...")
