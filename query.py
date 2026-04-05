@@ -22,6 +22,7 @@ load_dotenv()
 class State(TypedDict):
     messages: Annotated[List[BaseMessage], add_messages]
     extracted_info: Dict[str, Any]
+    completed_steps: List[str]
     retrieved_docs: List[Any]
     confidence_score: int
     relevance_score: int
@@ -145,6 +146,7 @@ def agent(state: State):
         response = raw_output
 
     extracted = result.get("extracted_info", {})
+    new_completed_steps = result.get("completed_steps", [])
     vetting = result.get("vetting_requested", False)
     end_session_requested = result.get("end_session_requested", False)
     factual_question = result.get("factual_question", "")
@@ -158,6 +160,10 @@ def agent(state: State):
     clean_extracted = {k: v for k, v in extracted.items() if not is_pillar_missing(v)}
     new_info = {**info, **clean_extracted}
     
+    # Merge completed steps
+    current_steps = state.get("completed_steps", [])
+    merged_steps = list(set(current_steps + new_completed_steps))
+    
     extracted_country = extracted.get("target_country") or current_country
     extracted_visa = extracted.get("visa_category") or current_visa
     
@@ -166,6 +172,7 @@ def agent(state: State):
 
     return {
         "extracted_info": new_info,
+        "completed_steps": merged_steps,
         "selected_country": extracted_country,
         "visa_type": extracted_visa,
         "vetting_requested": vetting,
@@ -303,9 +310,9 @@ def evaluate(state: State):
     # Only send the last 3 messages for conversational context
     recent_messages = state["messages"][-3:]
     
-    # Build "completed steps" from all user messages so the LLM knows what NOT to re-list
-    human_msgs = [m.content for m in state["messages"] if isinstance(m, HumanMessage)]
-    completed_steps = "\n".join(f"- User said: \"{msg}\"" for msg in human_msgs) if human_msgs else "No prior conversation."
+    # Build "completed steps" from state array
+    completed_steps_array = state.get("completed_steps", [])
+    completed_steps = "- " + "\n- ".join(completed_steps_array) if completed_steps_array else "None recorded."
     
     # BUG FIX: Use .replace() instead of .format() to avoid KeyError when
     # policy documents (context) or user data contain curly braces like {embassy}
@@ -502,6 +509,7 @@ def run_visa_consultation(user_input: str, thread_id: str, country: str = None, 
             "selected_country": country or "Unknown",
             "visa_type": visa or "Unknown",
             "extracted_info": {},
+            "completed_steps": [],
             "retrieved_docs": [],
             "relevance_score": 0,
             "confidence_score": 0,

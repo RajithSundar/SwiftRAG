@@ -57,8 +57,10 @@ INTERVIEW_SYSTEM_PROMPT = (
     " 8. employment (current job, experience)\n"
     " 9. english_proficiency (TOEFL/IELTS score)\n"
     " 10. ties_to_home_country (family, property, return plans)\n\n"
+    "**Checklist (extract string array of steps already done):**\n"
+    " - completed_steps (e.g. [\"Received I-20\", \"Paid SEVIS fee\", \"Filed DS-160\"])\n\n"
     "Return the conversational response followed by the JSON state update. "
-    "Format: [Your reply] {{ \"extracted_info\": {{ \"age\": \"...\" }}, \"vetting_requested\": false, \"factual_question\": \"...\", \"end_session_requested\": false }}"
+    "Format: [Your reply] {{ \"extracted_info\": {{ \"age\": \"...\" }}, \"completed_steps\": [\"...\"], \"vetting_requested\": false, \"factual_question\": \"...\", \"end_session_requested\": false }}"
 )
 
 # Eligibility Advice Prompt (Used in evaluate node)
