@@ -22,13 +22,11 @@ load_dotenv()
 class State(TypedDict):
     messages: Annotated[List[BaseMessage], add_messages]
     extracted_info: Dict[str, Any]
-    completed_steps: List[str]
     retrieved_docs: List[Any]
     confidence_score: int
     relevance_score: int
     faithfulness: int
     selected_country: str
-    visa_type: str
     vetting_requested: bool
     end_session: bool
     factual_question: str
@@ -75,8 +73,8 @@ def agent(state: State):
     Only job is to be polite, react to user input, and fill extracted_info slots.
     """
     current_country = state.get("selected_country", "Unknown")
-    current_visa = state.get("visa_type", "Unknown")
     info = state.get("extracted_info", {})
+    current_visa = info.get("visa_category", "Unknown")
     
     # Build compact state summary instead of relying on full chat history
     state_prose = _build_state_prose(info, current_country, current_visa)
@@ -146,7 +144,6 @@ def agent(state: State):
         response = raw_output
 
     extracted = result.get("extracted_info", {})
-    new_completed_steps = result.get("completed_steps", [])
     vetting = result.get("vetting_requested", False)
     end_session_requested = result.get("end_session_requested", False)
     factual_question = result.get("factual_question", "")
@@ -160,21 +157,13 @@ def agent(state: State):
     clean_extracted = {k: v for k, v in extracted.items() if not is_pillar_missing(v)}
     new_info = {**info, **clean_extracted}
     
-    # Merge completed steps
-    current_steps = state.get("completed_steps", [])
-    merged_steps = list(set(current_steps + new_completed_steps))
-    
     extracted_country = extracted.get("target_country") or current_country
-    extracted_visa = extracted.get("visa_category") or current_visa
     
     if is_pillar_missing(extracted_country): extracted_country = current_country
-    if is_pillar_missing(extracted_visa): extracted_visa = current_visa
 
     return {
         "extracted_info": new_info,
-        "completed_steps": merged_steps,
         "selected_country": extracted_country,
-        "visa_type": extracted_visa,
         "vetting_requested": vetting,
         "end_session": end_session_requested,
         "factual_question": factual_question,
@@ -303,22 +292,19 @@ def evaluate(state: State):
     import time as _time
     context = "\n\n".join(doc.page_content for doc in state["retrieved_docs"])
     info = state.get("extracted_info", {})
+    visa_cat = info.get("visa_category", "Unknown")
     
     # Token optimization: build prose profile from state dict instead of full history
-    state_prose = _build_state_prose(info, state.get("selected_country", "Unknown"), state.get("visa_type", "Unknown"))
+    state_prose = _build_state_prose(info, state.get("selected_country", "Unknown"), visa_cat)
     
     # Only send the last 3 messages for conversational context
     recent_messages = state["messages"][-3:]
-    
-    # Build "completed steps" from state array
-    completed_steps_array = state.get("completed_steps", [])
-    completed_steps = "- " + "\n- ".join(completed_steps_array) if completed_steps_array else "None recorded."
     
     # BUG FIX: Use .replace() instead of .format() to avoid KeyError when
     # policy documents (context) or user data contain curly braces like {embassy}
     advice_content = (prompts.ADVICE_SYSTEM_PROMPT
         .replace("{country}", state.get("selected_country", "Unknown"))
-        .replace("{visa}", state.get("visa_type", "Unknown"))
+        .replace("{visa}", visa_cat)
         .replace("{age}", str(info.get('age', 'Unknown')))
         .replace("{nationality}", str(info.get('nationality', 'Unknown')))
         .replace("{financials}", str(info.get('financials', 'Unknown')))
@@ -327,7 +313,6 @@ def evaluate(state: State):
         .replace("{employment}", str(info.get('employment', 'Not provided')))
         .replace("{english_proficiency}", str(info.get('english_proficiency', 'Not provided')))
         .replace("{ties_to_home_country}", str(info.get('ties_to_home_country', 'Not provided')))
-        .replace("{completed_steps}", completed_steps)
         .replace("{context}", context)
     )
     
@@ -341,8 +326,8 @@ def evaluate(state: State):
     supplementary = ["education", "employment", "english_proficiency", "ties_to_home_country"]
     supplementary_filled = sum(1 for p in supplementary if not is_pillar_missing(info.get(p)))
 
-    # If all core pillars are met AND at least 3 supplementary pillars are met, force the conclusion!
-    if not core_missing and supplementary_filled >= 3:
+    # If all core pillars are met AND at least 4 supplementary pillars are met, force the conclusion!
+    if not core_missing and supplementary_filled == 4:
         is_ending = True
     # ---------------------------------
 
@@ -432,6 +417,10 @@ def evaluate(state: State):
     # Weighted: faithfulness (direct answer quality) counts more than retrieval similarity
     final_relevance_score = (state.get("relevance_score", 0) * 0.4) + (faith_percent * 0.6)
 
+    if is_ending:
+        metrics_text = f"\nMetrics for this session: - Relevance Score: {int(final_relevance_score)}% - Confidence Score (Visa Probability): {int(visa_probability_percent)}% - Faithfulness Rating: {5 if is_faithful else 1}/5"
+        answer += metrics_text
+
     return {
         "messages": [AIMessage(content=answer)],
         "faithfulness": 5 if is_faithful else 1,
@@ -442,7 +431,7 @@ def evaluate(state: State):
 
 def router(state: State):
     """Branching logic: requires core 6 pillars + at least 2 supplementary fields."""
-    if state.get("end_session"):
+    if state.get("end_session") or state.get("vetting_requested"):
         return "evaluate"
         
     if state.get("factual_question"):
@@ -466,12 +455,12 @@ def router(state: State):
     mentioned_school = any(sch in last_user_msg for sch in ["university", "college", "school", "stanford", "harvard", "mit"])
     
     # If the profile is incomplete, but they just asked about money/schools right now, do a quick retrieval
-    if (mentioned_money or mentioned_school) and (core_missing or supplementary_filled < 3):
+    if (mentioned_money or mentioned_school) and (core_missing or supplementary_filled < 4):
         return "retrieve"
     # ----------------------------------------------------------------
 
     # If pillars are missing and no immediate triggers were fired, pause graph (wait for user)
-    if core_missing or supplementary_filled < 3:
+    if core_missing or supplementary_filled < 4:
         return "end"
     
     # If we made it here, the profile is complete! 
@@ -507,9 +496,7 @@ def run_visa_consultation(user_input: str, thread_id: str, country: str = None, 
         state_input = {
             "messages": [HumanMessage(content=user_input)],
             "selected_country": country or "Unknown",
-            "visa_type": visa or "Unknown",
             "extracted_info": {},
-            "completed_steps": [],
             "retrieved_docs": [],
             "relevance_score": 0,
             "confidence_score": 0,

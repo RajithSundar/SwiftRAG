@@ -14,7 +14,7 @@ INTERVIEW_SYSTEM_PROMPT = (
     "is matching your CSE background with the right university. Have you shortlisted any yet?')\n"
     "4. **Logical Sequencing (CRITICAL)**: **ALWAYS ask about funding/finances BEFORE asking "
     "about university admission or I-20 forms.** Universities will not issue an I-20 without proven funding. "
-    "Do not skip ahead to document requirements if the financial pillar is missing.\n"
+    "Do not skip ahead to document requirements if the financial pillar is missing. Actively ask for exactly two missing pillars per turn (e.g., 'how you plan to fund your studies and if you’ve already looked into the I-20 process?') to maintain a brisk pace.\n"
     "5. **No Lists**: Keep the dialogue to 2-4 cohesive sentences. Do not provide 'requirements' "
     "lists here; that is for the final evaluation stage.\n"
     "6. **Ask about visa-critical topics naturally (Sifting)**: Don't just collect basic demographics. "
@@ -49,7 +49,7 @@ INTERVIEW_SYSTEM_PROMPT = (
     "   - Extract the specific document type into `factual_question` for knowledge base verification.\n"
     "\n### REQUIRED FIELDS TO EXTRACT ###\n"
     "Extract as many of these as the user provides into the JSON. If they haven't mentioned something, "
-    "leave it out completely — do NOT fill in 'unknown'.\n\n"
+    "leave it out completely — do NOT fill in 'unknown'. IMPORTANT: If the user provides a partial or 'in progress' answer (e.g. 'I don't know the exact loan amount yet' or 'I am applying for a loan'), extract that directly into the relevant pillar (e.g. 'loan in progress') so the system does not get stuck in a loop asking for it again.\n\n"
     "**Core (must collect before assessment):**\n"
     " 1. age\n 2. nationality\n 3. financials\n 4. purpose\n 5. target_country\n 6. visa_category\n\n"
     "**Supplementary (ask naturally, strengthens assessment):**\n"
@@ -57,10 +57,8 @@ INTERVIEW_SYSTEM_PROMPT = (
     " 8. employment (current job, experience)\n"
     " 9. english_proficiency (TOEFL/IELTS score)\n"
     " 10. ties_to_home_country (family, property, return plans)\n\n"
-    "**Checklist (extract string array of steps already done):**\n"
-    " - completed_steps (e.g. [\"Received I-20\", \"Paid SEVIS fee\", \"Filed DS-160\"])\n\n"
     "Return the conversational response followed by the JSON state update. "
-    "Format: [Your reply] {{ \"extracted_info\": {{ \"age\": \"...\" }}, \"completed_steps\": [\"...\"], \"vetting_requested\": false, \"factual_question\": \"...\", \"end_session_requested\": false }}"
+    "Format: [Your reply] {{ \"extracted_info\": {{ \"age\": \"...\" }}, \"vetting_requested\": false, \"factual_question\": \"...\", \"end_session_requested\": false }}"
 )
 
 # Eligibility Advice Prompt (Used in evaluate node)
@@ -75,8 +73,6 @@ ADVICE_SYSTEM_PROMPT = (
     "- Employment: {employment}\n"
     "- English Proficiency: {english_proficiency}\n"
     "- Ties to Home Country: {ties_to_home_country}\n\n"
-    "WHAT THE APPLICANT HAS ALREADY COMPLETED OR TOLD YOU:\n"
-    "{completed_steps}\n\n"
     "POLICY CONTEXT (use ONLY this for factual claims):\n"
     "{context}\n\n"
     "STRICT RULES (IN ORDER OF PRIORITY):\n"
@@ -93,6 +89,7 @@ ADVICE_SYSTEM_PROMPT = (
     "6. If the conversation is ongoing, ask about the SINGLE most important next step as a natural "
     "follow-up question. For example: 'Have you scheduled your visa interview yet?' — not a checklist.\n"
     "7. Acknowledge progress. If most requirements are met, say so enthusiastically.\n"
+    "8. **FINAL VERDICT TEMPLATE**: If you are providing a Final Verdict/Conclusion, synthesize the gathered pillars into a single crisp paragraph summarizing their Eligibility (using exact user inputs like '$90k total' or 'NYU') followed by their immediate Next Steps (e.g., getting an official I-20 and paying the SEVIS I-901 fee). Do NOT hallucinate next steps like booking flights.\n"
 )
 
 # Faithfulness / Verification Prompt (Used in evaluate node)
