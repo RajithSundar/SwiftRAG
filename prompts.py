@@ -14,7 +14,8 @@ INTERVIEW_SYSTEM_PROMPT = (
     "is matching your CSE background with the right university. Have you shortlisted any yet?')\n"
     "4. **Logical Sequencing (CRITICAL)**: **ALWAYS ask about funding/finances BEFORE asking "
     "about university admission or I-20 forms.** Universities will not issue an I-20 without proven funding. "
-    "Do not skip ahead to document requirements if the financial pillar is missing. Actively ask for exactly two missing pillars per turn (e.g., 'how you plan to fund your studies and if you’ve already looked into the I-20 process?') to maintain a brisk pace.\n"
+    "If the user mentions an MS or University admission, automatically infer their Visa Category as F-1 Student Visa. "
+    "If you are only missing 1 or 2 pillars, ask for them directly instead of extending the conversation unnecessarily.\n"
     "5. **No Lists**: Keep the dialogue to 2-4 cohesive sentences. Do not provide 'requirements' "
     "lists here; that is for the final evaluation stage.\n"
     "6. **Ask about visa-critical topics naturally (Sifting)**: Don't just collect basic demographics. "
@@ -92,8 +93,8 @@ ADVICE_SYSTEM_PROMPT = (
     "8. **FINAL VERDICT TEMPLATE**: If you are providing a Final Verdict/Conclusion, synthesize the gathered pillars into a single crisp paragraph summarizing their Eligibility (using exact user inputs like '$90k total' or 'NYU') followed by their immediate Next Steps (e.g., getting an official I-20 and paying the SEVIS I-901 fee). Do NOT hallucinate next steps like booking flights.\n"
 )
 
-# Faithfulness / Verification Prompt (Used in evaluate node)
-FAITHFULNESS_EVAL_PROMPT = (
+# Verification Prompt (Used in evaluate node)
+EVALUATION_PROMPT = (
     "Evaluate the following answer and the applicant's profile against the policy context. "
     "Calculate a realistic visa approval probability (confidence score) based on the strength of "
     "the applicant's profile (financials, ties to home country, purpose, etc.) as evaluated against "

@@ -23,11 +23,10 @@ with st.sidebar:
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
-        if msg.get("relevance") or msg.get("confidence") or msg.get("faithfulness"):
-            cols = st.columns(3)
+        if msg.get("relevance") or msg.get("confidence"):
+            cols = st.columns(2)
             cols[0].metric("Relevance", f"{msg.get('relevance', 0)}%")
             cols[1].metric("Confidence", f"{msg.get('confidence', 0)}%")
-            cols[2].metric("Faithfulness", f"{msg.get('faithfulness', 0)}/5")
         if msg.get("sources"):
             with st.expander("Sources"):
                 for s in set(msg["sources"]): st.caption(s)
@@ -67,7 +66,6 @@ if not st.session_state.end_session:
             "content": res.get("answer", ""),
             "relevance": res.get("relevance", 0),
             "confidence": res.get("confidence", 0),
-            "faithfulness": res.get("faithfulness", 0),
             "sources": res.get("sources", []),
             "end_session": res.get("end_session", False)
         })

@@ -25,7 +25,6 @@ class State(TypedDict):
     retrieved_docs: List[Any]
     confidence_score: int
     relevance_score: int
-    faithfulness: int
     selected_country: str
     vetting_requested: bool
     end_session: bool
@@ -45,27 +44,35 @@ def is_pillar_missing(value):
 def _build_state_prose(info: dict, country: str, visa: str) -> str:
     """Converts extracted_info dict into a compact prose summary for the LLM."""
     parts = []
-    if info.get("age") and not is_pillar_missing(info["age"]):
-        parts.append(f"Age: {info['age']}")
-    if info.get("nationality") and not is_pillar_missing(info["nationality"]):
-        parts.append(f"Nationality: {info['nationality']}")
-    if info.get("financials") and not is_pillar_missing(info["financials"]):
-        parts.append(f"Financials: {info['financials']}")
-    if info.get("purpose") and not is_pillar_missing(info["purpose"]):
-        parts.append(f"Purpose: {info['purpose']}")
-    if info.get("education") and not is_pillar_missing(info["education"]):
-        parts.append(f"Education: {info['education']}")
-    if info.get("employment") and not is_pillar_missing(info["employment"]):
-        parts.append(f"Employment: {info['employment']}")
-    if info.get("english_proficiency") and not is_pillar_missing(info["english_proficiency"]):
-        parts.append(f"English Proficiency: {info['english_proficiency']}")
-    if info.get("ties_to_home_country") and not is_pillar_missing(info["ties_to_home_country"]):
-        parts.append(f"Ties to Home Country: {info['ties_to_home_country']}")
-    if country and country != "Unknown":
-        parts.append(f"Target Country: {country}")
-    if visa and visa != "Unknown":
-        parts.append(f"Visa Category: {visa}")
-    return ", ".join(parts) if parts else "No information collected yet."
+    missing = []
+    
+    # Core
+    if info.get("age") and not is_pillar_missing(info["age"]): parts.append(f"Age: {info['age']}")
+    else: missing.append("Age")
+    if info.get("nationality") and not is_pillar_missing(info["nationality"]): parts.append(f"Nationality: {info['nationality']}")
+    else: missing.append("Nationality")
+    if info.get("financials") and not is_pillar_missing(info["financials"]): parts.append(f"Financials: {info['financials']}")
+    else: missing.append("Financials")
+    if info.get("purpose") and not is_pillar_missing(info["purpose"]): parts.append(f"Purpose: {info['purpose']}")
+    else: missing.append("Purpose")
+    if country and country != "Unknown": parts.append(f"Target Country: {country}")
+    else: missing.append("Target Country")
+    if visa and visa != "Unknown": parts.append(f"Visa Category: {visa}")
+    else: missing.append("Visa Category")
+    
+    # Supplementary
+    if info.get("education") and not is_pillar_missing(info["education"]): parts.append(f"Education: {info['education']}")
+    else: missing.append("Education")
+    if info.get("employment") and not is_pillar_missing(info["employment"]): parts.append(f"Employment: {info['employment']}")
+    else: missing.append("Employment")
+    if info.get("english_proficiency") and not is_pillar_missing(info["english_proficiency"]): parts.append(f"English Proficiency: {info['english_proficiency']}")
+    else: missing.append("English Proficiency")
+    if info.get("ties_to_home_country") and not is_pillar_missing(info["ties_to_home_country"]): parts.append(f"Ties to Home Country: {info['ties_to_home_country']}")
+    else: missing.append("Ties to Home Country")
+
+    collected = ", ".join(parts) if parts else "No information collected yet."
+    missing_str = ", ".join(missing) if missing else "None."
+    return f"COLLECTED: {collected}\nSTILL MISSING: {missing_str}"
 
 def agent(state: State):
     """
@@ -81,8 +88,8 @@ def agent(state: State):
     
     system_prompt = prompts.INTERVIEW_SYSTEM_PROMPT.format(state_prose=state_prose)
 
-    # Token optimization: only send last 2 messages for conversational tone
-    recent_messages = state["messages"][-2:]
+    # Token optimization: send last 6 messages to preserve conversational continuity
+    recent_messages = state["messages"][-6:]
 
     prompt = ChatPromptTemplate.from_messages([
         SystemMessage(content=system_prompt),
@@ -252,7 +259,7 @@ def retrieve(state: State):
     rerank_prompt = ChatPromptTemplate.from_template(
         "You are a relevance evaluator. Rank these documents based on how specifically "
         "they answer the user's visa query: '{query}'\n\nDocs:\n{docs_text}\n\n"
-        "Return ONLY the scores as valid JSON.\n{format_instructions}"
+        "Return ONLY the scores as valid JSON with NO python comments (no # signs) inside the JSON block.\n{format_instructions}"
     )
     
     docs_text = "\n".join([f"Doc {i}: {doc.page_content}" for i, doc in enumerate(docs)])
@@ -297,8 +304,8 @@ def evaluate(state: State):
     # Token optimization: build prose profile from state dict instead of full history
     state_prose = _build_state_prose(info, state.get("selected_country", "Unknown"), visa_cat)
     
-    # Only send the last 3 messages for conversational context
-    recent_messages = state["messages"][-3:]
+    # Only send the last 6 messages for conversational context
+    recent_messages = state["messages"][-6:]
     
     # BUG FIX: Use .replace() instead of .format() to avoid KeyError when
     # policy documents (context) or user data contain curly braces like {embassy}
@@ -331,39 +338,42 @@ def evaluate(state: State):
         is_ending = True
     # ---------------------------------
 
-    human_instruction = (
-        "The user profile is complete. Provide a structured final verdict containing:\n"
-        "1. **Strengths:** What parts of their profile align well with policy?\n"
-        "2. **Red Flags (If any):** Address Course Mismatches, Unverifiable Funds, etc.\n"
-        "3. **Next Steps:** A strict chronological action plan.\n\n"
-        "Do NOT ask any more questions. End the conversation gracefully and professionally."
-    ) if is_ending else "Based on everything we've discussed, what should I focus on next?"
-
-    answer_prompt = ChatPromptTemplate.from_messages([
-        SystemMessage(content=advice_content),
-        MessagesPlaceholder(variable_name="messages"),
-        ("human", human_instruction)
-    ])
-    
     class Evaluation(BaseModel):
-        is_faithful: bool = Field(description="Is the answer supported by the context?")
         relevance_score: float = Field(description="Score between 0 and 1 indicating confidence in the answer based on context")
         visa_probability: float = Field(description="Score between 0 and 1 indicating the estimated probability the applicant will receive the visa, based on their profile and the context")
         citations: List[str] = Field(description="List of specific policy sections or URLs used")
 
-    # Rate-limit retry for advice generation
     answer = None
-    for attempt in range(3):
-        try:
-            answer = (answer_prompt | llm | StrOutputParser()).invoke({"messages": recent_messages})
-            break
-        except Exception as e:
-            if "429" in str(e) or "rate_limit" in str(e).lower():
-                wait = 30 * (attempt + 1)
-                print(f"[WARN] Groq rate limit hit during advice generation. Retrying in {wait}s... (attempt {attempt + 1}/3)")
-                _time.sleep(wait)
-            else:
-                raise
+    if is_ending:
+        human_instruction = (
+            "The user profile is complete. Provide a structured final verdict containing:\n"
+            "1. **Strengths:** What parts of their profile align well with policy?\n"
+            "2. **Red Flags (If any):** Address Course Mismatches, Unverifiable Funds, etc.\n"
+            "3. **Next Steps:** A strict chronological action plan.\n\n"
+            "Do NOT ask any more questions. End the conversation gracefully and professionally."
+        )
+        answer_prompt = ChatPromptTemplate.from_messages([
+            SystemMessage(content=advice_content),
+            MessagesPlaceholder(variable_name="messages"),
+            ("human", human_instruction)
+        ])
+
+        # Rate-limit retry for advice generation
+        for attempt in range(3):
+            try:
+                answer = (answer_prompt | llm | StrOutputParser()).invoke({"messages": recent_messages})
+                break
+            except Exception as e:
+                if "429" in str(e) or "rate_limit" in str(e).lower():
+                    wait = 30 * (attempt + 1)
+                    print(f"[WARN] Groq rate limit hit during advice generation. Retrying in {wait}s... (attempt {attempt + 1}/3)")
+                    _time.sleep(wait)
+                else:
+                    raise
+    else:
+        # DO NOT generate a new answer. Just evaluate the one the Agent already generated!
+        ai_msgs = [m for m in state.get("messages", []) if isinstance(m, AIMessage)]
+        answer = ai_msgs[-1].content if ai_msgs else ""
     
     if answer is None:
         answer = ""
@@ -377,7 +387,7 @@ def evaluate(state: State):
     # BUG FIX: Pre-format the eval prompt with .replace() before wrapping in SystemMessage.
     # SystemMessage doesn't expand template variables, so {context}/{answer}/{format_instructions}
     # would be sent as literal text to the LLM without this.
-    eval_content = (prompts.FAITHFULNESS_EVAL_PROMPT
+    eval_content = (prompts.EVALUATION_PROMPT
         .replace("{format_instructions}", parser.get_format_instructions())
         .replace("{profile}", state_prose)
         .replace("{context}", context)
@@ -406,24 +416,21 @@ def evaluate(state: State):
             raise Exception("Evaluation API unavailable after 3 retries.")
         
         parsed_eval = parser.parse(raw_eval)
-        faith_percent = parsed_eval.relevance_score * 100
-        is_faithful = parsed_eval.is_faithful
+        llm_relevance_percent = parsed_eval.relevance_score * 100
         visa_probability_percent = parsed_eval.visa_probability * 100
     except Exception as e:
-        faith_percent = 50.0
-        is_faithful = False
+        llm_relevance_percent = 50.0
         visa_probability_percent = 0.0
 
-    # Weighted: faithfulness (direct answer quality) counts more than retrieval similarity
-    final_relevance_score = (state.get("relevance_score", 0) * 0.4) + (faith_percent * 0.6)
+    # Compose final relevance from retrieval score and LLM evaluation
+    final_relevance_score = (state.get("relevance_score", 0) * 0.4) + (llm_relevance_percent * 0.6)
 
     if is_ending:
-        metrics_text = f"\nMetrics for this session: - Relevance Score: {int(final_relevance_score)}% - Confidence Score (Visa Probability): {int(visa_probability_percent)}% - Faithfulness Rating: {5 if is_faithful else 1}/5"
+        metrics_text = f"\nMetrics for this session: - Relevance Score: {int(final_relevance_score)}% - Confidence Score (Visa Probability): {int(visa_probability_percent)}%"
         answer += metrics_text
 
     return {
         "messages": [AIMessage(content=answer)],
-        "faithfulness": 5 if is_faithful else 1,
         "relevance_score": int(final_relevance_score),
         "confidence_score": int(visa_probability_percent),
         "end_session": is_ending  # <--- CRITICAL FIX: This passes the flag back to the UI!
@@ -500,7 +507,6 @@ def run_visa_consultation(user_input: str, thread_id: str, country: str = None, 
             "retrieved_docs": [],
             "relevance_score": 0,
             "confidence_score": 0,
-            "faithfulness": 0,
             "vetting_requested": False,
             "end_session": False,
             "factual_question": ""
