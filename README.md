@@ -3,7 +3,7 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <h3 align="center">SwiftVisa AI</h3>
+  <h3 align="center">SwiftVisa AI - Infosys Springboard Virtual Internship</h3>
 
   <p align="center">
     An AI-powered visa eligibility screening agent using Retrieval-Augmented Generation (RAG).
