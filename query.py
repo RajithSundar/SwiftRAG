@@ -517,11 +517,12 @@ def run_visa_consultation(user_input: str, thread_id: str, country: str = None, 
         final_state = graph.invoke(state_input, config_run)
     except Exception as e:
         print(f"[ERROR] Graph execution failed: {e}")
+        fallback_info = existing.values.get("extracted_info", {}) if existing and getattr(existing, "values", None) else state_input.get("extracted_info", {})
         return {
             "answer": "I apologize, but I encountered an internal error. Please try again.",
             "relevance": 0,
             "confidence": 0,
-            "info": state_input.get("extracted_info", {}),
+            "info": fallback_info,
             "sources": []
         }
     
